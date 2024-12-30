@@ -1,0 +1,62 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: CloudFormation template for the SNS 
+
+Parameters:
+  FifoTopic:
+    Type: String
+    AllowedValues:
+      - true
+      - false
+    Default: false
+    ConstraintDescription: Possible values are true and false.
+  EmailAddress:
+    Type: String
+    AllowedPattern: ^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$
+    ConstraintDescription: Enter valid email address for sending notification.
+
+Conditions:
+  IsFifoTopic: !Equals
+    - !Ref FifoTopic
+    - true
+  IsStandardTopic: !Equals
+    - !Ref FifoTopic
+    - false
+
+Resources:
+  CustomFifoSNSTopic:
+    Type: AWS::SNS::Topic
+    Condition: IsFifoTopic
+    Properties:
+      FifoTopic: !Ref FifoTopic
+      Subscription:
+        - Endpoint: !ImportValue CustomQueueArn
+          Protocol: "sqs"
+      TopicName: SNSFifoTopic
+
+  CustomStandardSNSTopic:
+    Type: AWS::SNS::Topic
+    Condition: IsStandardTopic
+    Properties: 
+      FifoTopic: !Ref FifoTopic
+      Subscription:
+        - Endpoint: !Ref EmailAddress
+          Protocol: "email"
+        - Endpoint: !ImportValue CustomStandardQueueArn
+          Protocol: "sqs"
+      TopicName: SNSStandardTopic
+
+Outputs:
+  FifoTopicArn:
+    Description: The ARN of the created SNS topic
+    Value: !Ref CustomFifoSNSTopic
+    Condition: IsFifoTopic
+    Export: 
+      Name: FifoTopicArn
+      
+  StandardTopicArn:
+    Description: The ARN of the created SNS topic
+    Value: !Ref CustomStandardSNSTopic
+    Condition: IsStandardTopic
+    Export: 
+      Name: StandardTopicArn
+         

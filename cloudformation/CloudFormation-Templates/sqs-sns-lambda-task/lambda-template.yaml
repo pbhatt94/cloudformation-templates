@@ -1,0 +1,49 @@
+AWSTemplateFormatVersion: 2010-09-09
+Transform: AWS::Serverless-2016-10-31
+Description: A starter AWS lambda function
+
+Parameters:
+  LambdaTimeout:
+    Type: Number
+    Description: Timeout in seconds for the Lambda function.
+    Default: 3
+    MinValue: 1
+ 
+  LambdaRuntime:
+    Type: String
+    Description: Runtime for the Lambda function.
+    Default: python3.13
+    AllowedValues:
+      - python3.13
+
+  LambdaMemory:
+    Type: Number
+    Description: Memory Size in MB for the Lambda function.
+    Default: 128
+    MinValue: 128
+
+Resources:
+  LambdaFunction:
+    Type: 'AWS::Serverless::Function'
+    Properties:
+      Handler: app.lambda_handler
+      Runtime: !Ref LambdaRuntime
+      CodeUri: src/
+      Timeout: !Ref LambdaTimeout
+      Environment:
+        Variables:
+          TABLE_NAME: !Ref TableName
+          REGION_NAME: !Ref AWS::Region
+      Description: A simple AWS lambda function
+      MemorySize: !Ref LambdaMemory
+      FunctionName: Lambda_Function_SAM
+      Events:
+        SNSEvent:
+          Type: SNS
+          Properties:
+            Topic: !ImportValue StandardTopicArn
+
+  Outputs:
+    LambdaFunctionArn:
+      Description: ARN of the lambda function.
+      Value: !Ref LambdaFunction

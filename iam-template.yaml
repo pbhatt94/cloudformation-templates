@@ -1,0 +1,42 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: This template creates an IAM user and an associated IAM policy.
+
+Resources:
+  IAMUser:
+    Type: AWS::IAM::User
+    Properties:
+      Policies:
+        - PolicyName: IAMUserPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - iam:ListUsers
+                  - iam:GetUser
+                Resource: !GetAtt IAMUser.Arn 
+
+  IAMUserPolicy:
+    Type: 'AWS::IAM::Policy'
+    Properties:
+      PolicyName: IAMUserRootPolicy
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: PolicyVisualEditor
+            Effect: Allow
+            Action:
+              - iam:ListUsers
+              - iam:GetUser
+            Resource: !GetAtt IAMUser.Arn
+      Users:
+        - !Ref IAMUser
+
+Outputs:
+  IAMUserArn:
+    Description: The ARN of the IAM user
+    Value: !GetAtt IAMUser.Arn
+
+  IAMPolicyArn:
+    Description: The ARN of the IAM policy
+    Value: !GetAtt IAMUserPolicy.Arn

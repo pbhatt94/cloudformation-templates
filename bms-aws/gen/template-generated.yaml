@@ -1,0 +1,73 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: Template to deploy Bank Management System Spring Boot application to
+  AWS Lambda and connect it to API Gateway.
+Parameters:
+  LambdaRuntime:
+    Type: String
+    Default: java21
+  LambdaTimeout:
+    Type: Number
+    Default: 30
+  S3CodeUri:
+    Type: String
+    Default: s3://bank-management-system-dev/bank-management-system-aws-1.0-SNAPSHOT-lambda-package.zip
+  Stage:
+    Type: String
+    Default: dev
+    AllowedValues:
+    - dev
+    - prod
+    - test
+  S3Bucket:
+    Type: String
+    Default: bank-management-system-dev
+  S3Key:
+    Type: String
+    Default: bank-management-system-aws-1.0-SNAPSHOT-lambda-package.zip
+Resources:
+  ApiGatewayApi:
+    Type: AWS::Serverless::Api
+    Properties:
+      StageName:
+        Ref: Stage
+  LambdaFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: com.wg.banking.StreamLambdaHandler::handleRequest
+      Runtime:
+        Ref: LambdaRuntime
+      CodeUri:
+        Bucket:
+          Ref: S3Bucket
+        Key:
+          Ref: S3Key
+      Timeout:
+        Ref: LambdaTimeout
+      Environment:
+        Variables:
+          REGION_NAME:
+            Ref: AWS::Region
+      Events:
+        ApiGateway:
+          Type: Api
+          Properties:
+            Path: /{proxy+}
+            Method: ANY
+            RestApiId:
+              Ref: ApiGatewayApi
+Outputs:
+  LambdaFunctionArn:
+    Description: ARN of the Lambda function.
+    Value:
+      Fn::GetAtt:
+      - LambdaFunction
+      - Arn
+    Export:
+      Name: bank-management-lambda-arn
+  ApiGatewayUrl:
+    Description: URL of the API Gateway stage.
+    Value:
+      Fn::Sub: https://${ApiGatewayApi}.execute-api.${AWS::Region}.amazonaws.com/dev/
+    Export:
+      Name: ApiGatewayUrl

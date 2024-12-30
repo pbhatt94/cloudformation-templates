@@ -1,0 +1,148 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: This template creates an EC2 instance, security group, Elastic IP, and EBS volume.
+
+Parameters:
+  AvailabilityZone:
+    Type: AWS::EC2::AvailabilityZone::Name
+    Description: The Availability Zone in which the EC2 instance will be launched.
+    Default: us-east-1a
+  
+  InstanceType:
+    Type: String
+    Description: The EC2 instance type to use.
+    Default: t2.micro
+    AllowedValues:
+      - t2.micro
+  
+  VolumeSize:
+    Description: Size of the EBS Volume.
+    Type: Number
+    Default: 2
+    MinValue: 1
+    MaxValue: 8
+    ConstraintDescription: The size of the EBS Volume must be between 1 to 8.
+  
+  SSHLocation:
+    Description: The IP address range that can be used to SSH to the EC2 instances
+    Type: String
+    MinLength: '9'
+    MaxLength: '18'
+    Default: 0.0.0.0/0
+  
+  Environment:
+    Type: String
+    Description: The environment for the instance (dev, test, prod, qa)
+    Default: dev
+    AllowedValues:
+      - dev
+      - test
+      - prod
+      - qa
+    ConstraintDescription: The environment must be one of the allowed values.
+
+  InstanceRole:
+    Type: String
+    Description: The role of the EC2 instance.
+    Default: backend
+    AllowedValues:
+      - db
+      - backend
+    ConstraintDescription: The role of the instance must be one of the allowed values.
+
+  InstanceNameSuffix:
+    Type: String
+    Description: A suffix for the EC2 instance name (e.g., "01", "02")
+    Default: "01"
+  
+  DeletionPolicy:
+    Description: The deletion policy for the EBS Volume
+    Type: String
+    Default: Delete
+    AllowedValues:
+      - Delete
+      - Snapshot
+      - Retain
+    ConstraintDescription: The deletion policy must be one of the allowed values.
+
+Mappings:
+  AMIMapping:
+    us-east-1a:
+      AMI: ami-0a3c3a20c09d6f377
+    us-east-1b:
+      AMI: ami-0b7c2a2c63e9b5d8f
+    us-east-1c:
+      AMI: ami-0c78a9c48e5a8f3f1
+
+Resources:
+  BmsEC2Instance:
+    Type: AWS::EC2::Instance
+    Properties:
+      AvailabilityZone: !Ref AvailabilityZone  
+      ImageId: !FindInMap [AMIMapping, !Ref AvailabilityZone, AMI]
+      InstanceType: !Ref InstanceType  
+      SecurityGroups:
+        - !Ref SSHSecurityGroup
+      Tags:
+        - Key: Name
+          Value: !Sub "bms-${Environment}-${InstanceRole}-${InstanceNameSuffix}"
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: Role
+          Value: !Ref InstanceRole
+
+  ElasticIP:
+    Type: AWS::EC2::EIP
+    Properties:
+      InstanceId: !Ref BmsEC2Instance
+    DependsOn: BmsEC2Instance
+
+  SSHSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Enable SSH access via port 22
+      SecurityGroupIngress:
+        - CidrIp: !Ref SSHLocation
+          FromPort: 22
+          IpProtocol: tcp
+          ToPort: 22
+
+  EBSVolume:
+    Type: AWS::EC2::Volume
+    Properties:
+      Size: !Ref VolumeSize
+      Encrypted: true
+      AvailabilityZone: !Ref AvailabilityZone  
+      Tags:
+        - Key: Environment
+          Value: !Ref Environment
+    DeletionPolicy: !Ref DeletionPolicy
+
+  VolumeAttachment:
+    Type: AWS::EC2::VolumeAttachment
+    Properties:
+      InstanceId: !Ref BmsEC2Instance
+      VolumeId: !Ref EBSVolume
+      Device: /dev/sdh
+
+Outputs:
+  ElasticIP:
+    Description: The Elastic IP address associated with the EC2 instance
+    Value: !Ref ElasticIP
+    Export:
+      Name: "ElasticIp"
+
+  InstanceID:
+    Description: The ID of the EC2 instance
+    Value: !Ref BmsEC2Instance
+    Export:
+      Name: "EC2InstanceId"
+
+  InstanceAvailabilityZone:
+    Description: The Availability Zone in which the instance is running
+    Value: !GetAtt BmsEC2Instance.AvailabilityZone
+
+  EBSVolume:
+    Description: The ID of the EBS Volume.
+    Value: !Ref EBSVolume
+    Export:
+      Name: "EBSVolumeId"
